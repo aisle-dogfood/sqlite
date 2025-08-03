@@ -1,0 +1,32 @@
+FROM public.ecr.aws/docker/library/debian:11-slim
+
+# Install build dependencies and Tcl for test harness
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    tcl \
+    tcl-dev \
+    make \
+    gcc \
+    libc6-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create a non-root user
+RUN useradd -m -s /bin/bash app
+
+# Set up working directory
+WORKDIR /app
+
+# Copy source code
+COPY . .
+
+# Give ownership to non-root user
+RUN chown -R app:app /app
+
+# Switch to non-root user
+USER app
+
+# Set path for local binaries
+ENV PATH="$HOME/.local/bin:$PATH"
+
+# Configure and build
+RUN ./configure && make
