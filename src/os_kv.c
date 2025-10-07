@@ -414,7 +414,7 @@ static int kvvfsDecode(const char *a, char *aOut, int nOut){
         mult *= 26;
         c = aIn[++i];
       }
-      if( j+n>nOut ) return -1;
+      if( n > nOut - j ) return -1;
       memset(&aOut[j], 0, n);
       j += n;
       if( c==0 || mult==1 ) break; /* progress stalled if mult==1 */
