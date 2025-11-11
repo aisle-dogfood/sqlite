@@ -2356,7 +2356,7 @@ int main(int argc, char const * const *argv){
   }
   if( ctx.eVerbose>=1 ){
     char *zMsg;
-    sqlite3_int64 szTotal = (sqlite3_int64)ctx.nPage*(sqlite3_int64)ctx.szPage;
+    sqlite3_int64 szTotal = ((sqlite3_int64)ctx.nPage) * ((sqlite3_int64)ctx.szPage);
     sqlite3_int64 nIO = ctx.nOut +ctx.nIn;
     zMsg = sqlite3_mprintf("sent %,lld bytes, received %,lld bytes",
                            ctx.nOut, ctx.nIn);
