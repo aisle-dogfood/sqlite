@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <limits.h>
 #include "sqlite3.h"
 
 typedef unsigned char u8;         /* unsigned 8-bit */
@@ -44,8 +45,18 @@ static int decodeVarint(const unsigned char *z, i64 *pVal){
   i64 v = 0;
   int i;
   for(i=0; i<8; i++){
+    /* Check for potential overflow before left shift */
+    if( v > (LLONG_MAX >> 7) ){
+      *pVal = 0;
+      return -1; /* Overflow detected */
+    }
     v = (v<<7) + (z[i]&0x7f);
     if( (z[i]&0x80)==0 ){ *pVal = v; return i+1; }
+  }
+  /* Check for potential overflow before final left shift */
+  if( v > (LLONG_MAX >> 8) ){
+    *pVal = 0;
+    return -1; /* Overflow detected */
   }
   v = (v<<8) + (z[i]&0xff);
   *pVal = v;
@@ -323,11 +334,19 @@ static i64 describeContent(
 
   pLimit = &a[nLocal];
   n = decodeVarint(a, &x);
+  if( n < 0 ){
+    strcpy(zDesc, "*** ERROR: Integer overflow in header varint");
+    return;
+  }
   pData = &a[x];
   a += n;
   i = x - n;
   while( i>0 && pData<=pLimit ){
     n = decodeVarint(a, &x);
+    if( n < 0 ){
+      strcpy(zDesc, "*** ERROR: Integer overflow in field varint");
+      return;
+    }
     a += n;
     i -= n;
     nLocal -= n;
@@ -431,6 +450,10 @@ static i64 describeCell(
   }
   if( cType!=5 ){
     i = decodeVarint(a, &nPayload);
+    if( i < 0 ){
+      strcpy(zDesc, "*** ERROR: Integer overflow in payload varint");
+      return zDesc;
+    }
     a += i;
     n += i;
     sprintf(&zDesc[nDesc], "n: %lld ", nPayload);
@@ -441,6 +464,10 @@ static i64 describeCell(
   }
   if( cType==5 || cType==13 ){
     i = decodeVarint(a, &rowid);
+    if( i < 0 ){
+      strcpy(zDesc, "*** ERROR: Integer overflow in rowid varint");
+      return zDesc;
+    }
     a += i;
     n += i;
     sprintf(&zDesc[nDesc], "r: %lld ", rowid);
@@ -517,6 +544,10 @@ static void decodeCell(
   }
   if( cType!=5 ){
     i = decodeVarint(x, &nPayload);
+    if( i < 0 ){
+      printf("*** ERROR: Integer overflow in payload size varint\n");
+      return;
+    }
     printBytes(a, x, i);
     nLocal = localPayload(nPayload, cType);
     if( nLocal==nPayload ){
@@ -532,12 +563,20 @@ static void decodeCell(
   end = x + nLocal;
   if( cType==5 || cType==13 ){
     i = decodeVarint(x, &rowid);
+    if( i < 0 ){
+      printf("*** ERROR: Integer overflow in rowid varint\n");
+      return;
+    }
     printBytes(a, x, i);
     printf("rowid: %lld\n", rowid);
     x += i;
   }
   if( nLocal>0 ){
     i = decodeVarint(x, &nHdr);
+    if( i < 0 ){
+      printf("*** ERROR: Integer overflow in record header size varint\n");
+      return;
+    }
     printBytes(a, x, i);
     printf("record-header-size: %d\n", (int)nHdr);
     j = i;
@@ -548,6 +587,10 @@ static void decodeCell(
        int sz = 0;
        char zNm[30];
        i = decodeVarint(x+j, &iType);
+       if( i < 0 ){
+         printf("*** ERROR: Integer overflow in typecode varint\n");
+         return;
+       }
        printBytes(a, x+j, i);
        printf("typecode[%d]: %d - ", nCol, (int)iType);
        switch( iType ){
@@ -820,6 +863,10 @@ static void page_usage_cell(
   }
   if( cType!=5 ){
     i = decodeVarint(a, &nPayload);
+    if( i < 0 ){
+      printf("*** ERROR: Integer overflow in payload varint on page %u cell %d\n", pgno, cellno);
+      return;
+    }
     a += i;
     n += i;
     nLocal = localPayload(nPayload, cType);
@@ -828,6 +875,10 @@ static void page_usage_cell(
   }
   if( cType==5 || cType==13 ){
     i = decodeVarint(a, &rowid);
+    if( i < 0 ){
+      printf("*** ERROR: Integer overflow in rowid varint on page %u cell %d\n", pgno, cellno);
+      return;
+    }
     a += i;
     n += i;
   }
