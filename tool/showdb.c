@@ -1179,7 +1179,18 @@ int main(int argc, char **argv){
   sqlite3_free(zPgSz);
 
   printf("Pagesize: %d\n", (int)g.pagesize);
-  g.mxPage = (u32)((szFile+g.pagesize-1)/g.pagesize);
+  /* Calculate number of pages, avoiding integer overflow */
+  if( szFile <= 0 ){
+    g.mxPage = 0;
+  }else{
+    /* Use safer ceiling division: ceil(a/b) = (a-1)/b + 1 when a > 0 */
+    i64 maxPages = (szFile - 1) / g.pagesize + 1;
+    if( maxPages > 0xFFFFFFFF ){
+      fprintf(stderr, "Error: File too large - exceeds maximum page count\n");
+      exit(1);
+    }
+    g.mxPage = (u32)maxPages;
+  }
 
   printf("Available pages: 1..%u\n", g.mxPage);
   if( nArg==2 ){
