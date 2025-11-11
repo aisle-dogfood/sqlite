@@ -679,6 +679,13 @@ static void decode_btree_page(
   }
   nCell = a[3]*256 + a[4];
   iCellPtr = (a[0]==2 || a[0]==5) ? 12 : 8;
+  
+  /* Bounds check: ensure nCell is reasonable given page size constraints */
+  if( nCell < 0 || (iCellPtr + 2*nCell) > g.pagesize ){
+    printf("ERROR: page %d has invalid cell count (%d)\n", pgno, nCell);
+    return;
+  }
+  
   if( cellToDecode>=nCell ){
     printf("Page %d has only %d cells\n", pgno, nCell);
     return;
