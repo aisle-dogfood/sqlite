@@ -15,6 +15,16 @@
 #define WSEOL_OK   0x002
 
 static void checkSpacing(const char *zFile, unsigned flags){
+  /* Validate file path to prevent path traversal attacks */
+  if( strstr(zFile, "..") != NULL ){
+    printf("Error: Path traversal detected in filename: %s\n", zFile);
+    return;
+  }
+  if( zFile[0] == '/' ){
+    printf("Error: Absolute paths not allowed: %s\n", zFile);
+    return;
+  }
+  
   FILE *in = fopen(zFile, "rb");
   int i;
   int seenSpace;
