@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <limits.h>
 
 #if defined(_MSC_VER) || defined(__BORLANDC__)
   typedef __int64 i64;
@@ -72,20 +73,44 @@ int main(int argc, char **argv){
   ){
     /* Hex to decimal */
     for(i=1; i<argc && i<9; i++){
+      int h1, h2;
       if( strlen(argv[i])!=2 ){
         fprintf(stderr, "Not a hex byte: %s\n", argv[i]);
         exit(1);
       }
-      x = (hexValue(argv[i][0])<<4) + hexValue(argv[i][1]);
+      h1 = hexValue(argv[i][0]);
+      h2 = hexValue(argv[i][1]);
+      if( h1<0 || h2<0 ){
+        fprintf(stderr, "Invalid hex byte: %s\n", argv[i]);
+        exit(1);
+      }
+      x = (h1<<4) + h2;
+      /* Check for potential overflow before shifting and adding */
+      if( uX > (ULLONG_MAX >> 7) ){
+        fprintf(stderr, "Varint value too large\n");
+        exit(1);
+      }
       uX = (uX<<7) + (x&0x7f);
       if( (x&0x80)==0 ) break;
     }
     if( i==9 && i<argc ){
+      int h1, h2;
       if( strlen(argv[i])!=2 ){
         fprintf(stderr, "Not a hex byte: %s\n", argv[i]);
         exit(1);
       }
-      x = (hexValue(argv[i][0])<<4) + hexValue(argv[i][1]);
+      h1 = hexValue(argv[i][0]);
+      h2 = hexValue(argv[i][1]);
+      if( h1<0 || h2<0 ){
+        fprintf(stderr, "Invalid hex byte: %s\n", argv[i]);
+        exit(1);
+      }
+      x = (h1<<4) + h2;
+      /* Check for potential overflow before shifting and adding */
+      if( uX > (ULLONG_MAX >> 8) ){
+        fprintf(stderr, "Varint value too large\n");
+        exit(1);
+      }
       uX = (uX<<8) + x;
     }
     i++;
@@ -102,6 +127,11 @@ int main(int argc, char **argv){
     while( z[0] ){
       if( z[0]<'0' || z[0]>'9' ){
         fprintf(stderr, "Not a decimal number: %s", argv[1]);
+        exit(1);
+      }
+      /* Check for potential overflow before multiplying and adding */
+      if( uX > (ULLONG_MAX - (z[0] - '0')) / 10 ){
+        fprintf(stderr, "Decimal number too large: %s\n", argv[1]);
         exit(1);
       }
       uX = uX*10 + z[0] - '0';
