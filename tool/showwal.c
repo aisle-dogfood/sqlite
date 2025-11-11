@@ -96,8 +96,18 @@ static int decodeVarint(const unsigned char *z, i64 *pVal){
   i64 v = 0;
   int i;
   for(i=0; i<8; i++){
+    /* Check for potential overflow before left shift */
+    if( v > (0x7fffffffffffffffLL >> 7) ){
+      *pVal = 0;
+      return -1; /* Overflow detected */
+    }
     v = (v<<7) + (z[i]&0x7f);
     if( (z[i]&0x80)==0 ){ *pVal = v; return i+1; }
+  }
+  /* Check for potential overflow before final left shift */
+  if( v > (0x7fffffffffffffffLL >> 8) ){
+    *pVal = 0;
+    return -1; /* Overflow detected */
   }
   v = (v<<8) + (z[i]&0xff);
   *pVal = v;
@@ -302,11 +312,13 @@ static i64 describeContent(
 
   pLimit = &a[nLocal];
   n = decodeVarint(a, &x);
+  if( n<0 ) return 0; /* Handle overflow */
   pData = &a[x];
   a += n;
   i = x - n;
   while( i>0 && pData<=pLimit ){
     n = decodeVarint(a, &x);
+    if( n<0 ) break; /* Handle overflow */
     a += n;
     i -= n;
     nLocal -= n;
@@ -409,6 +421,7 @@ static i64 describeCell(
   }
   if( cType!=5 ){
     i = decodeVarint(a, &nPayload);
+    if( i<0 ){ *pzDesc = "ERROR: Integer overflow in payload"; return 0; }
     a += i;
     n += i;
     sprintf(&zDesc[nDesc], "n: %lld ", nPayload);
@@ -419,6 +432,7 @@ static i64 describeCell(
   }
   if( cType==5 || cType==13 ){
     i = decodeVarint(a, &rowid);
+    if( i<0 ){ *pzDesc = "ERROR: Integer overflow in rowid"; return 0; }
     a += i;
     n += i;
     sprintf(&zDesc[nDesc], "r: %lld ", rowid);
