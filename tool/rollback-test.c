@@ -89,7 +89,16 @@ int main(int argc, char **argv){
       }else if( strncmp(argv[i], "-pagesize=", 10)==0 ){
         int szPg = atoi(&argv[i][10]);
         char zBuf[100];
-        sprintf(zBuf, "PRAGMA pagesize=%d", szPg);
+        /* Validate pagesize to prevent integer overflow and buffer overflow */
+        if( szPg <= 0 || szPg > 65536 ){
+          fprintf(stderr, "Invalid pagesize %d. Must be between 1 and 65536.\n", szPg);
+          usage(argv[0]);
+        }
+        /* Use snprintf to prevent buffer overflow */
+        if( snprintf(zBuf, sizeof(zBuf), "PRAGMA pagesize=%d", szPg) >= sizeof(zBuf) ){
+          fprintf(stderr, "Buffer overflow prevented in pagesize formatting.\n");
+          usage(argv[0]);
+        }
         runSql(db, zBuf);
       }else{
         fprintf(stderr, "unknown option %s\n", argv[i]);
