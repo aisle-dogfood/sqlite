@@ -1774,6 +1774,10 @@ static void replicaSide(SQLiteRsync *p){
                        nOPage);
         }
         if( p->nErr ) break;
+        if( szOPage > 65536 ){
+          reportError(p, "Page size %u exceeds maximum buffer size of 65536", szOPage);
+          break;
+        }
         if( iProtocol>p->iProtocol ){
           /* If the protocol version on the origin side is larger, send back
           ** a REPLICA_BEGIN message with the protocol version number of the
