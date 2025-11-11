@@ -615,7 +615,7 @@ int main(int argc, char **argv){
       }else if( zLeft && strcmp(zLeft,"truncate")==0 ){
         /* Frame number followed by "truncate" truncates the WAL file
         ** after that frame */
-        off_t newSize = 32 + iStart*(pagesize+24);
+        off_t newSize = 32 + (off_t)iStart*(pagesize+24);
         truncate(argv[1], newSize);
         continue;
 #endif
