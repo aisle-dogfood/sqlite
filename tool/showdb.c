@@ -745,7 +745,7 @@ static void decode_trunk_page(
   u32 n;
   unsigned char *a;
   while( pgno>0 ){
-    a = fileRead((pgno-1)*g.pagesize, g.pagesize);
+    a = fileRead((pgno-1)*(sqlite3_int64)g.pagesize, g.pagesize);
     printf("Decode of freelist trunk page %d:\n", pgno);
     print_decode_line(a, 0, 4, "Next freelist trunk page");
     print_decode_line(a, 4, 4, "Number of entries on this page");
@@ -873,7 +873,7 @@ static void page_usage_btree(
   char zEntry[30];
 
   if( pgno<=0 || pgno>g.mxPage ) return;
-  a = fileRead((pgno-1)*g.pagesize, g.pagesize);
+  a = fileRead((pgno-1)*(sqlite3_int64)g.pagesize, g.pagesize);
   switch( a[hdr] ){
     case 0: {
       if( allZero(a, g.pagesize) ){
@@ -956,7 +956,7 @@ static void page_usage_freelist(u32 pgno){
 
   while( pgno>0 && pgno<=g.mxPage && (u32)(cnt++)<g.mxPage ){
     page_usage_msg(pgno, "freelist trunk #%d child of %d", cnt, parent);
-    a = fileRead((pgno-1)*g.pagesize, g.pagesize);
+    a = fileRead((pgno-1)*(sqlite3_int64)g.pagesize, g.pagesize);
     iNext = decodeInt32(a);
     n = decodeInt32(a+4);
     if( n>(g.pagesize - 8)/4 ){
@@ -1226,7 +1226,7 @@ int main(int argc, char **argv){
           nByte = g.pagesize-100;
         }else{
           hdrSize = 0;
-          ofst = (iStart-1)*g.pagesize;
+          ofst = (iStart-1)*(sqlite3_int64)g.pagesize;
           nByte = g.pagesize;
         }
         a = fileRead(ofst, nByte);
