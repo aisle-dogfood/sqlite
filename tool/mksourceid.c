@@ -16,6 +16,50 @@
 #include <sys/types.h>
 #include <ctype.h>
 
+/*
+** Validate a filename to prevent path traversal attacks.
+** Returns 1 if the filename is safe, 0 if it contains dangerous patterns.
+*/
+static int is_safe_filename(const char *zFilename){
+  const char *p;
+  
+  if( !zFilename || zFilename[0]=='\0' ){
+    return 0;  /* Empty filename */
+  }
+  
+  /* Check for absolute paths */
+  if( zFilename[0]=='/' || zFilename[0]=='\\' ){
+    return 0;  /* Absolute path not allowed */
+  }
+  
+  /* Check for Windows drive letters */
+  if( strlen(zFilename)>=2 && zFilename[1]==':' && 
+      ((zFilename[0]>='A' && zFilename[0]<='Z') || 
+       (zFilename[0]>='a' && zFilename[0]<='z')) ){
+    return 0;  /* Windows drive letter not allowed */
+  }
+  
+  /* Check for path traversal sequences and other dangerous patterns */
+  for( p = zFilename; *p; p++ ){
+    /* Check for null bytes */
+    if( *p == '\0' ){
+      return 0;
+    }
+    
+    /* Check for path traversal sequences */
+    if( p[0]=='.' && p[1]=='.' && (p[2]=='/' || p[2]=='\\' || p[2]=='\0') ){
+      return 0;  /* "../" or "..\" or ".." at end */
+    }
+    
+    /* Check for control characters */
+    if( *p < 32 && *p != '\t' ){
+      return 0;  /* Control characters not allowed (except tab) */
+    }
+  }
+  
+  return 1;  /* Filename appears safe */
+}
+
 /* Portable 64-bit unsigned integers */
 #if defined(_MSC_VER) || defined(__BORLANDC__)
   typedef unsigned __int64 u64;
@@ -502,6 +546,11 @@ static int sha3sum_file(const char *zFilename, int iSize, char *pCksum){
   SHA3Context ctx;
   char zBuf[10240];
 
+  /* Validate filename to prevent path traversal attacks */
+  if( !is_safe_filename(zFilename) ){
+    return 1;
+  }
+
   in = fopen(zFilename,"rb");
   if( in==0 ){
     return 1;
@@ -711,6 +760,11 @@ static int sha1sum_file(const char *zFilename, char *pCksum){
   SHA1Context ctx;
   unsigned char zResult[20];
   char zBuf[10240];
+
+  /* Validate filename to prevent path traversal attacks */
+  if( !is_safe_filename(zFilename) ){
+    return 1;
+  }
 
   in = fopen(zFilename,"rb");
   if( in==0 ){
