@@ -451,6 +451,11 @@ int append_escaped_arg(sqlite3_str *pStr, const char *zIn, int isFilename){
           /* Bad UTF8 character */
           return 1;
         }
+        /* Check for integer overflow before incrementing i */
+        if( i > INT_MAX - (x-2) ){
+          /* Integer overflow would occur */
+          return 1;
+        }
         i += x-2;
       }
     }
@@ -486,6 +491,10 @@ int append_escaped_arg(sqlite3_str *pStr, const char *zIn, int isFilename){
       sqlite3_str_appendchar(pStr, 1, '.');
     }
     for(i=0; (c = (unsigned char)zIn[i])!=0; i++){
+      /* Check for integer overflow before incrementing i */
+      if( i == INT_MAX ){
+        return 1;
+      }
       sqlite3_str_appendchar(pStr, 1, (char)c);
       if( c=='"' ) sqlite3_str_appendchar(pStr, 1, '"');
       if( c=='\\' ) sqlite3_str_appendchar(pStr, 1, '\\');
@@ -504,6 +513,10 @@ int append_escaped_arg(sqlite3_str *pStr, const char *zIn, int isFilename){
         sqlite3_str_appendchar(pStr, 1, '/');
       }
       for(i=0; (c = (unsigned char)zIn[i])!=0; i++){
+        /* Check for integer overflow before incrementing i */
+        if( i == INT_MAX ){
+          return 1;
+        }
         if( aSafeChar[c] && aSafeChar[c]!=2 ){
           sqlite3_str_appendchar(pStr, 1, '\\');
         }
