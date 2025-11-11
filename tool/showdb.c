@@ -194,13 +194,13 @@ static unsigned char *print_byte_range(
   int i, j;
   const char *zOfstFmt;
 
-  if( ((printOfst+nByte)&~0xfff)==0 ){
+  if( (((i64)printOfst+nByte)&~0xfff)==0 ){
     zOfstFmt = " %03x: ";
-  }else if( ((printOfst+nByte)&~0xffff)==0 ){
+  }else if( (((i64)printOfst+nByte)&~0xffff)==0 ){
     zOfstFmt = " %04x: ";
-  }else if( ((printOfst+nByte)&~0xfffff)==0 ){
+  }else if( (((i64)printOfst+nByte)&~0xfffff)==0 ){
     zOfstFmt = " %05x: ";
-  }else if( ((printOfst+nByte)&~0xffffff)==0 ){
+  }else if( (((i64)printOfst+nByte)&~0xffffff)==0 ){
     zOfstFmt = " %06x: ";
   }else{
     zOfstFmt = " %08x: ";
