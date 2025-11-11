@@ -61,7 +61,7 @@ static void print_decode_line(
   const char *zMsg           /* Message to append */
 ){
   int i, j;
-  int val = aData[ofst];
+  unsigned int val = aData[ofst];
   char zBuf[100];
   sprintf(zBuf, " %03x: %02x", ofst, aData[ofst]);
   i = (int)strlen(zBuf);
@@ -93,7 +93,7 @@ static void print_decode_line(
   }else if( flg & FG_HEX ){
     sprintf(&zBuf[i], "  0x%08x", val);
   }else if( nByte<8 ){
-    sprintf(&zBuf[i], "   %9d", val);
+    sprintf(&zBuf[i], "   %9u", val);
   }
   printf("%s  %s\n", zBuf, zMsg);
 }
