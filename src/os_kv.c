@@ -516,12 +516,20 @@ static int kvvfsReadJrnl(
     if( szTxt<=4 ){
       return SQLITE_IOERR;
     }
+    /* Check for integer overflow when adding 1 to szTxt */
+    if( szTxt >= INT_MAX ){
+      return SQLITE_IOERR;
+    }
     aTxt = sqlite3_malloc64( szTxt+1 );
     if( aTxt==0 ) return SQLITE_NOMEM;
     kvstorageRead(pFile->zClass, "jrnl", aTxt, szTxt+1);
     kvvfsDecodeJournal(pFile, aTxt, szTxt);
     sqlite3_free(aTxt);
     if( pFile->aJrnl==0 ) return SQLITE_IOERR;
+  }
+  /* Check for integer overflow when adding iOfst and iAmt */
+  if( iAmt > 0 && iOfst > (sqlite_int64)(LLONG_MAX - iAmt) ){
+    return SQLITE_IOERR_SHORT_READ;
   }
   if( iOfst+iAmt>pFile->nJrnl ){
     return SQLITE_IOERR_SHORT_READ;
