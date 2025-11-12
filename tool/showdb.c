@@ -708,6 +708,10 @@ static void decode_btree_page(
     i64 n;
 
     cofst = a[cofst]*256 + a[cofst+1];
+    if( cofst < hdrSize ){
+      printf("Error: cell[%d] offset %d is less than header size %d\n", i, cofst, hdrSize);
+      continue;
+    }
     n = describeCell(a[0], &a[cofst-hdrSize], showCellContent, &zDesc);
     if( showMap ){
       char zBuf[30];
