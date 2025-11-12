@@ -66,6 +66,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <ctype.h>
+#include <limits.h>
 #include "sqlite3.h"
 #define ISDIGIT(X) isdigit((unsigned char)(X))
 
@@ -757,17 +758,20 @@ static int integerValue(const char *zArg){
     int x;
     zArg += 2;
     while( (x = hexDigitValue(zArg[0]))>=0 ){
+      if( v > (LLONG_MAX>>4) ) abendError("parameter too large - overflow during parsing");
       v = (v<<4) + x;
       zArg++;
     }
   }else{
     while( ISDIGIT(zArg[0]) ){
+      if( v > (LLONG_MAX/10) ) abendError("parameter too large - overflow during parsing");
       v = v*10 + zArg[0] - '0';
       zArg++;
     }
   }
   for(i=0; i<sizeof(aMult)/sizeof(aMult[0]); i++){
     if( sqlite3_stricmp(aMult[i].zSuffix, zArg)==0 ){
+      if( v > LLONG_MAX/aMult[i].iMult ) abendError("parameter too large - overflow during suffix multiplication");
       v *= aMult[i].iMult;
       break;
     }
