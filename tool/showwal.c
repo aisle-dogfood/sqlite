@@ -401,7 +401,7 @@ static i64 describeCell(
   static char zDesc[1000];
   i = 0;
   if( cType<=5 ){
-    leftChild = ((a[0]*256 + a[1])*256 + a[2])*256 + a[3];
+    leftChild = ((unsigned int)a[0] << 24) | ((unsigned int)a[1] << 16) | ((unsigned int)a[2] << 8) | a[3];
     a += 4;
     n += 4;
     sprintf(zDesc, "lx: %d ", leftChild);
@@ -427,7 +427,7 @@ static i64 describeCell(
   if( nLocal<nPayload ){
     int ovfl;
     unsigned char *b = &a[nLocal];
-    ovfl = ((b[0]*256 + b[1])*256 + b[2])*256 + b[3];
+    ovfl = ((unsigned int)b[0] << 24) | ((unsigned int)b[1] << 16) | ((unsigned int)b[2] << 8) | b[3];
     sprintf(&zDesc[nDesc], "ov: %d ", ovfl);
     nDesc += strlen(&zDesc[nDesc]);
     n += 4;

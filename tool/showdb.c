@@ -423,7 +423,7 @@ static i64 describeCell(
   static char zDesc[1000];
   i = 0;
   if( cType<=5 ){
-    leftChild = ((a[0]*256 + a[1])*256 + a[2])*256 + a[3];
+    leftChild = ((u32)a[0] << 24) | ((u32)a[1] << 16) | ((u32)a[2] << 8) | a[3];
     a += 4;
     n += 4;
     sprintf(zDesc, "lx: %u ", leftChild);
@@ -449,7 +449,7 @@ static i64 describeCell(
   if( nLocal<nPayload ){
     u32 ovfl;
     unsigned char *b = &a[nLocal];
-    ovfl = ((b[0]*256 + b[1])*256 + b[2])*256 + b[3];
+    ovfl = ((u32)b[0] << 24) | ((u32)b[1] << 16) | ((u32)b[2] << 8) | b[3];
     sprintf(&zDesc[nDesc], "ov: %u ", ovfl);
     nDesc += strlen(&zDesc[nDesc]);
     n += 4;
@@ -510,7 +510,7 @@ static void decodeCell(
 
   printf("Cell[%d]:\n", iCell);
   if( cType<=5 ){
-    leftChild = ((x[0]*256 + x[1])*256 + x[2])*256 + x[3];
+    leftChild = ((u32)x[0] << 24) | ((u32)x[1] << 16) | ((u32)x[2] << 8) | x[3];
     printBytes(a, x, 4);
     printf("left child page:: %u\n", leftChild);
     x += 4;
