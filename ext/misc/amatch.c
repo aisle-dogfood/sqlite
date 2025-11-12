@@ -757,6 +757,7 @@ static char *amatchDequote(const char *zIn){
         if( zIn[iIn]==q ) iIn++;
         zOut[iOut++] = zIn[iIn];
       }
+      zOut[iOut] = '\0';
     }
     assert( (int)strlen(zOut)<=nIn );
   }
