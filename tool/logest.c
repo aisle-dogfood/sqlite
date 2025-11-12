@@ -150,7 +150,12 @@ int main(int argc, char **argv){
     }else if( z[0]=='^' ){
       a[n++] = (LogEst)atoi(z+1);
     }else if( isInteger(z) ){
-      a[n++] = logEstFromInteger(atoll(z));
+      long long val = atoll(z);
+      if( val < 0 || val > 2000000000LL ){
+        printf("Error: Integer value %lld is out of range (0 to 2000000000)\n", val);
+        return 1;
+      }
+      a[n++] = logEstFromInteger((sqlite3_uint64)val);
     }else if( isFloat(z) && z[0]!='-' ){
       a[n++] = logEstFromDouble(atof(z));
     }else{
