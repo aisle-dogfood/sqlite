@@ -24492,7 +24492,7 @@ int main(int argc, char *const argv[])
         }
         else {
             Jim_SetVariableStr(interp, "argv0", Jim_NewStringObj(interp, argv[1], -1));
-            JimSetArgv(interp, argc - 2, argv + 2);
+            JimSetArgv(interp, argc >= 2 ? argc - 2 : 0, argc >= 2 ? argv + 2 : NULL);
             if (strcmp(argv[1], "-") == 0) {
 eval_stdin:
                 retcode = Jim_Eval(interp, "eval [info source [stdin read] stdin 1]");
