@@ -312,7 +312,8 @@ static void print_db_header(void){
 static i64 describeContent(
   unsigned char *a,       /* Cell content */
   i64 nLocal,             /* Bytes in a[] */
-  char *zDesc             /* Write description here */
+  char *zDesc,            /* Write description here */
+  int nRemain             /* Remaining buffer space */
 ){
   i64 nDesc = 0;
   int n, j;
@@ -321,12 +322,14 @@ static i64 describeContent(
   const unsigned char *pLimit;
   char sep = ' ';
 
+  if( nRemain <= 0 ) return 0;
+
   pLimit = &a[nLocal];
   n = decodeVarint(a, &x);
   pData = &a[x];
   a += n;
   i = x - n;
-  while( i>0 && pData<=pLimit ){
+  while( i>0 && pData<=pLimit && nRemain > 1 ){
     n = decodeVarint(a, &x);
     a += n;
     i -= n;
@@ -335,8 +338,11 @@ static i64 describeContent(
     sep = ',';
     nDesc++;
     zDesc++;
+    nRemain--;
+    if( nRemain <= 0 ) break;
+    
     if( x==0 ){
-      sprintf(zDesc, "*");     /* NULL is a "*" */
+      j = snprintf(zDesc, nRemain, "*");     /* NULL is a "*" */
     }else if( x>=1 && x<=6 ){
       v = (signed char)pData[0];
       pData++;
@@ -347,26 +353,33 @@ static i64 describeContent(
         case 3:  v = (v<<8) + pData[0];  pData++;
         case 2:  v = (v<<8) + pData[0];  pData++;
       }
-      sprintf(zDesc, "%lld", v);
+      j = snprintf(zDesc, nRemain, "%lld", v);
     }else if( x==7 ){
-      sprintf(zDesc, "real");
+      j = snprintf(zDesc, nRemain, "real");
       pData += 8;
     }else if( x==8 ){
-      sprintf(zDesc, "0");
+      j = snprintf(zDesc, nRemain, "0");
     }else if( x==9 ){
-      sprintf(zDesc, "1");
+      j = snprintf(zDesc, nRemain, "1");
     }else if( x>=12 ){
       i64 size = (x-12)/2;
       if( (x&1)==0 ){
-        sprintf(zDesc, "blob(%lld)", size);
+        j = snprintf(zDesc, nRemain, "blob(%lld)", size);
       }else{
-        sprintf(zDesc, "txt(%lld)", size);
+        j = snprintf(zDesc, nRemain, "txt(%lld)", size);
       }
       pData += size;
+    }else{
+      j = 0;
     }
-    j = (int)strlen(zDesc);
+    
+    if( j >= nRemain ){
+      j = nRemain - 1;
+      break;
+    }
     zDesc += j;
     nDesc += j;
+    nRemain -= j;
   }
   return nDesc;
 }
@@ -421,20 +434,26 @@ static i64 describeCell(
   i64 rowid;
   i64 nLocal;
   static char zDesc[1000];
+  int nRemain = sizeof(zDesc) - 1; /* Reserve space for null terminator */
+  int nWrite;
   i = 0;
   if( cType<=5 ){
     leftChild = ((a[0]*256 + a[1])*256 + a[2])*256 + a[3];
     a += 4;
     n += 4;
-    sprintf(zDesc, "lx: %u ", leftChild);
-    nDesc = strlen(zDesc);
+    nWrite = snprintf(zDesc, nRemain, "lx: %u ", leftChild);
+    if( nWrite >= nRemain ) nWrite = nRemain - 1;
+    nDesc = nWrite;
+    nRemain -= nWrite;
   }
   if( cType!=5 ){
     i = decodeVarint(a, &nPayload);
     a += i;
     n += i;
-    sprintf(&zDesc[nDesc], "n: %lld ", nPayload);
-    nDesc += strlen(&zDesc[nDesc]);
+    nWrite = snprintf(&zDesc[nDesc], nRemain, "n: %lld ", nPayload);
+    if( nWrite >= nRemain ) nWrite = nRemain - 1;
+    nDesc += nWrite;
+    nRemain -= nWrite;
     nLocal = localPayload(nPayload, cType);
   }else{
     nPayload = nLocal = 0;
@@ -443,20 +462,30 @@ static i64 describeCell(
     i = decodeVarint(a, &rowid);
     a += i;
     n += i;
-    sprintf(&zDesc[nDesc], "r: %lld ", rowid);
-    nDesc += strlen(&zDesc[nDesc]);
+    if( nRemain > 0 ){
+      nWrite = snprintf(&zDesc[nDesc], nRemain, "r: %lld ", rowid);
+      if( nWrite >= nRemain ) nWrite = nRemain - 1;
+      nDesc += nWrite;
+      nRemain -= nWrite;
+    }
   }
   if( nLocal<nPayload ){
     u32 ovfl;
     unsigned char *b = &a[nLocal];
     ovfl = ((b[0]*256 + b[1])*256 + b[2])*256 + b[3];
-    sprintf(&zDesc[nDesc], "ov: %u ", ovfl);
-    nDesc += strlen(&zDesc[nDesc]);
+    if( nRemain > 0 ){
+      nWrite = snprintf(&zDesc[nDesc], nRemain, "ov: %u ", ovfl);
+      if( nWrite >= nRemain ) nWrite = nRemain - 1;
+      nDesc += nWrite;
+      nRemain -= nWrite;
+    }
     n += 4;
   }
-  if( showCellContent && cType!=5 ){
-    nDesc += describeContent(a, nLocal, &zDesc[nDesc-1]);
+  if( showCellContent && cType!=5 && nRemain > 0 ){
+    nWrite = describeContent(a, nLocal, &zDesc[nDesc-1], nRemain);
+    nDesc += nWrite;
   }
+  zDesc[nDesc] = '\0'; /* Ensure null termination */
   *pzDesc = zDesc;
   return nLocal+n;
 }
