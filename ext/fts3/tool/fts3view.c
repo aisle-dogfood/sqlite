@@ -291,7 +291,7 @@ static void showSegmentStats(sqlite3 *db, const char *zTab){
   sqlite3_int64 szRoot = 0, mxRoot = 0;
   sqlite3_int64 mx;
   int nLeaf;
-  int n;
+  sqlite3_int64 n;
   int pgsz;
   int mxLevel;
   int i;
@@ -417,8 +417,8 @@ static void showSegmentStats(sqlite3 *db, const char *zTab){
       }
       printf("  Maximum leaf segment size.............. %9lld\n",
              sqlite3_column_int64(pStmt, 3));
-      n = sqlite3_column_int(pStmt, 4);
-      printf("  Leaf segments larger than %5d bytes.. %9d   %5.2f%%\n",
+      n = sqlite3_column_int64(pStmt, 4);
+      printf("  Leaf segments larger than %5d bytes.. %9lld   %5.2f%%\n",
              pgsz-45, n, n*100.0/nLeaf);
     }
     sqlite3_finalize(pStmt);
