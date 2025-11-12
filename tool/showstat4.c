@@ -22,8 +22,18 @@ static int decodeVarint(const unsigned char *z, i64 *pVal){
   i64 v = 0;
   int i;
   for(i=0; i<8; i++){
+    /* Check for potential overflow before left shift */
+    if( v > (0x7fffffffffffffffLL >> 7) ){
+      *pVal = 0;
+      return -1; /* Overflow detected */
+    }
     v = (v<<7) + (z[i]&0x7f);
     if( (z[i]&0x80)==0 ){ *pVal = v; return i+1; }
+  }
+  /* Check for potential overflow before final left shift */
+  if( v > (0x7fffffffffffffffLL >> 8) ){
+    *pVal = 0;
+    return -1; /* Overflow detected */
   }
   v = (v<<8) + (z[i]&0xff);
   *pVal = v;
@@ -80,7 +90,7 @@ int main(int argc, char **argv){
     printf("'\n          ");
     zSep = " ";
     x = decodeVarint(aSample, &iVal);
-    if( iVal<x || iVal>nSample ){
+    if( x<0 || iVal<x || iVal>nSample ){
       printf(" <error>\n");
       continue;
     }
@@ -88,7 +98,12 @@ int main(int argc, char **argv){
     while( x<mxHdr ){
       int sz;
       i64 v;
-      x += decodeVarint(aSample+x, &iVal);
+      int ret = decodeVarint(aSample+x, &iVal);
+      if( ret<0 ){
+        printf(" <overflow error>\n");
+        break;
+      }
+      x += ret;
       if( x>mxHdr ) break;
       if( iVal<0 ) break;
       switch( iVal ){
