@@ -510,7 +510,7 @@ static void decodeCell(
 
   printf("Cell[%d]:\n", iCell);
   if( cType<=5 ){
-    leftChild = ((x[0]*256 + x[1])*256 + x[2])*256 + x[3];
+    leftChild = ((u32)x[0]<<24) | ((u32)x[1]<<16) | ((u32)x[2]<<8) | (u32)x[3];
     printBytes(a, x, 4);
     printf("left child page:: %u\n", leftChild);
     x += 4;
