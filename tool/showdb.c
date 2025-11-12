@@ -1012,6 +1012,12 @@ static void page_usage_report(const char *zPrg, const char *zDbName){
 
   /* Set up global variables zPageUse[] and g.mxPage to record page
   ** usages */
+  /* Check for integer overflow when adding 1 to g.mxPage */
+  if( g.mxPage >= 0xFFFFFFFF ){
+    fprintf(stderr, "Error: Database too large (page count would overflow)\n");
+    sqlite3_close(db);
+    return;
+  }
   zPageUse = sqlite3_malloc64( sizeof(zPageUse[0])*(g.mxPage+1) );
   if( zPageUse==0 ) out_of_memory();
   memset(zPageUse, 0, sizeof(zPageUse[0])*(g.mxPage+1));
