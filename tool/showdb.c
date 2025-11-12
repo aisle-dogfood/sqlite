@@ -18,6 +18,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <limits.h>
+#include <stddef.h>
 #include "sqlite3.h"
 
 typedef unsigned char u8;         /* unsigned 8-bit */
@@ -1012,6 +1014,16 @@ static void page_usage_report(const char *zPrg, const char *zDbName){
 
   /* Set up global variables zPageUse[] and g.mxPage to record page
   ** usages */
+  /* Check for integer overflow in allocation size calculation */
+  if( g.mxPage == 0xFFFFFFFFU ){
+    fprintf(stderr, "Error: Database too large, maximum page number reached\n");
+    exit(1);
+  }
+  /* Check if (g.mxPage+1) * sizeof(zPageUse[0]) would overflow */
+  if( g.mxPage > (SIZE_MAX / sizeof(zPageUse[0])) - 1 ){
+    fprintf(stderr, "Error: Database too large, allocation size would overflow\n");
+    exit(1);
+  }
   zPageUse = sqlite3_malloc64( sizeof(zPageUse[0])*(g.mxPage+1) );
   if( zPageUse==0 ) out_of_memory();
   memset(zPageUse, 0, sizeof(zPageUse[0])*(g.mxPage+1));
