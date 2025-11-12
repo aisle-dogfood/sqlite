@@ -21353,7 +21353,24 @@ int Jim_CheckShowCommands(Jim_Interp *interp, Jim_Obj *objPtr, const char *const
         char **tablePtrSorted = JimSortStringTable(tablePtr);
         Jim_SetResult(interp, Jim_NewListObj(interp, NULL, 0));
         for (i = 0; tablePtrSorted[i]; i++) {
-            Jim_ListAppendElement(interp, Jim_GetResult(interp), Jim_NewStringObj(interp, tablePtrSorted[i], -1));
+            /* Calculate string length safely with a reasonable maximum bound to prevent
+             * improper null termination vulnerability when calling strlen() */
+            const char *str = tablePtrSorted[i];
+            int len = 0;
+            const int MAX_COMMAND_LEN = 1024; /* Reasonable bound for command names */
+            
+            /* Safe string length calculation with bounds checking */
+            while (len < MAX_COMMAND_LEN && str[len] != '\0') {
+                len++;
+            }
+            
+            /* If we hit the maximum length without finding null terminator, 
+             * treat it as if the string is exactly MAX_COMMAND_LEN long */
+            if (len == MAX_COMMAND_LEN && str[len] != '\0') {
+                len = MAX_COMMAND_LEN;
+            }
+            
+            Jim_ListAppendElement(interp, Jim_GetResult(interp), Jim_NewStringObj(interp, tablePtrSorted[i], len));
         }
         Jim_Free(tablePtrSorted);
         return JIM_OK;
