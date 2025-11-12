@@ -711,12 +711,16 @@ static void decode_btree_page(
     n = describeCell(a[0], &a[cofst-hdrSize], showCellContent, &zDesc);
     if( showMap ){
       char zBuf[30];
-      memset(&zMap[cofst], '*', (size_t)n);
-      zMap[cofst] = '[';
-      zMap[cofst+n-1] = ']';
-      sprintf(zBuf, "%d", i);
-      j = (int)strlen(zBuf);
-      if( j<=n-2 ) memcpy(&zMap[cofst+1], zBuf, j);
+      /* Bounds check to prevent integer overflow and buffer overflow */
+      if( cofst >= 0 && cofst < g.pagesize && n > 0 && 
+          cofst + n <= g.pagesize ){
+        memset(&zMap[cofst], '*', (size_t)n);
+        zMap[cofst] = '[';
+        zMap[cofst+n-1] = ']';
+        sprintf(zBuf, "%d", i);
+        j = (int)strlen(zBuf);
+        if( j<=n-2 && cofst+1+j <= g.pagesize ) memcpy(&zMap[cofst+1], zBuf, j);
+      }
     }
     if( cellToDecode==(-2) ){
       printf(" %03x: cell[%d] %s\n", cofst, i, zDesc);
