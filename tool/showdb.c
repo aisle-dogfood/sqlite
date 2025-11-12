@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <limits.h>
 #include "sqlite3.h"
 
 typedef unsigned char u8;         /* unsigned 8-bit */
@@ -979,7 +980,20 @@ static void page_usage_freelist(u32 pgno){
 */
 static void page_usage_ptrmap(u8 *a){
   if( decodeInt32(a+52) ){
-    int usable = g.pagesize - a[20];
+    /* Validate that reserved space (a[20]) is not larger than page size */
+    if( a[20] >= g.pagesize ){
+      /* Invalid reserved space value, skip ptrmap analysis */
+      return;
+    }
+    
+    /* Use i64 to prevent integer overflow, then validate result fits in int */
+    i64 usable_i64 = g.pagesize - a[20];
+    if( usable_i64 <= 0 || usable_i64 > INT_MAX ){
+      /* Invalid usable space calculation, skip ptrmap analysis */
+      return;
+    }
+    
+    int usable = (int)usable_i64;
     u64 pgno = 2;
     int perPage = usable/5;
     while( pgno<=g.mxPage ){
