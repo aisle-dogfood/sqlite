@@ -29,6 +29,7 @@
 #include <stdarg.h>
 #include <io.h>
 #include <fcntl.h>
+#include <limits.h>
 
 /*
 ** If the SQLITE_U8TEXT_ONLY option is defined, then use O_U8TEXT
@@ -151,6 +152,10 @@ char *sqlite3_fgets(char *buf, int sz, FILE *in){
     ** that into UTF-8.  Otherwise, non-ASCII characters all get translated
     ** into '?'.
     */
+    /* Check for integer overflow in sz*sizeof(wchar_t) */
+    if( sz < 0 || sz > INT_MAX/sizeof(wchar_t) ){
+      return 0;
+    }
     wchar_t *b1 = sqlite3_malloc( sz*sizeof(wchar_t) );
     if( b1==0 ) return 0;
 #ifdef SQLITE_USE_W32_FOR_CONSOLE_IO
