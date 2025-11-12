@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <limits.h>
 #include "sqlite3.h"
 
 typedef unsigned char u8;         /* unsigned 8-bit */
@@ -239,10 +240,20 @@ static unsigned char *print_byte_range(
 */
 static void print_page(u32 iPg){
   i64 iStart;
+  i64 iEnd;
   unsigned char *aData;
   iStart = ((i64)(iPg-1))*g.pagesize;
+  
+  /* Check for integer overflow when calculating end offset */
+  if( g.pagesize > 0 && iStart > (LLONG_MAX - g.pagesize + 1) ){
+    /* Overflow would occur, use maximum possible value */
+    iEnd = LLONG_MAX;
+  }else{
+    iEnd = iStart + g.pagesize - 1;
+  }
+  
   fprintf(stdout, "Page %u:   (offsets 0x%llx..0x%llx)\n",
-          iPg, iStart, iStart+g.pagesize-1);
+          iPg, iStart, iEnd);
   aData = print_byte_range(iStart, g.pagesize, 0);
   sqlite3_free(aData);
 }
