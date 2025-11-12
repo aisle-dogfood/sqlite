@@ -5332,6 +5332,7 @@ static char **JimBuildEnv(Jim_Interp *interp)
     envdata = (char *)&envptr[num / 2 + 1];
 
     n = 0;
+    char *envdata_start = envdata;
     for (i = 0; i < num; i += 2) {
         const char *s1, *s2;
         Jim_Obj *elemObj;
@@ -5342,7 +5343,15 @@ static char **JimBuildEnv(Jim_Interp *interp)
         s2 = Jim_String(elemObj);
 
         envptr[n] = envdata;
-        envdata += sprintf(envdata, "%s=%s", s1, s2);
+        int remaining_size = size - (envdata - envdata_start);
+        int written = snprintf(envdata, remaining_size, "%s=%s", s1, s2);
+        if (written >= remaining_size) {
+            /* Buffer overflow would occur, truncate safely */
+            envdata[remaining_size - 1] = '\0';
+            envdata += remaining_size - 1;
+        } else {
+            envdata += written;
+        }
         envdata++;
         n++;
     }
