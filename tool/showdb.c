@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <stdint.h>
 #include "sqlite3.h"
 
 typedef unsigned char u8;         /* unsigned 8-bit */
@@ -389,11 +390,25 @@ static i64 localPayload(i64 nPayload, char cType){
     minLocal = (g.pagesize-12)*32/255-23;
   }
   if( nPayload>maxLocal ){
-    surplus = minLocal + (nPayload-minLocal)%(g.pagesize-4);
-    if( surplus<=maxLocal ){
-      nLocal = surplus;
-    }else{
+    /* Ensure we don't have integer overflow or undefined behavior */
+    if( g.pagesize <= 4 || nPayload < minLocal ){
       nLocal = minLocal;
+    }else{
+      i64 diff = nPayload - minLocal;
+      i64 divisor = g.pagesize - 4;
+      i64 remainder = diff % divisor;
+      
+      /* Check for potential overflow in addition */
+      if( remainder > (INT64_MAX - minLocal) ){
+        nLocal = minLocal;
+      }else{
+        surplus = minLocal + remainder;
+        if( surplus<=maxLocal ){
+          nLocal = surplus;
+        }else{
+          nLocal = minLocal;
+        }
+      }
     }
   }else{
     nLocal = nPayload;
