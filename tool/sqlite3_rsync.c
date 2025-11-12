@@ -426,7 +426,7 @@ static const char aSafeChar[256] = {
 ** (or ".\\" on Windows).
 */
 int append_escaped_arg(sqlite3_str *pStr, const char *zIn, int isFilename){
-  int i;
+  size_t i;
   unsigned char c;
   int needEscape = 0;
   int n = sqlite3_str_length(pStr);
