@@ -48,6 +48,37 @@
 #include "sqlite3.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
+/*
+** Validate that a database path is safe and doesn't contain directory
+** traversal sequences. Returns 1 if safe, 0 if unsafe.
+*/
+static int isValidDatabasePath(const char *path) {
+  if( !path || strlen(path) == 0 ) return 0;
+  
+  /* Reject absolute paths */
+  if( path[0] == '/' || (strlen(path) >= 3 && path[1] == ':' && path[2] == '\\') ) {
+    return 0;
+  }
+  
+  /* Reject paths containing directory traversal sequences */
+  if( strstr(path, "../") != NULL || strstr(path, "..\\") != NULL ) {
+    return 0;
+  }
+  
+  /* Reject paths starting with .. */
+  if( strlen(path) >= 2 && path[0] == '.' && path[1] == '.' ) {
+    return 0;
+  }
+  
+  /* Reject paths containing null bytes */
+  if( strlen(path) != strcspn(path, "\0") ) {
+    return 0;
+  }
+  
+  return 1;
+}
 
 /*
 ** Finalize a prepared statement.  If an error has occurred, print the
@@ -121,9 +152,16 @@ int main(int argc, char **argv){
     return 1;
   }
 
-  /* Identify the database file to be vacuumed and open it.
+  /* Identify the database file to be vacuumed and validate it.
   */
   zDbToVacuum = argv[1];
+  
+  /* Validate the database path to prevent directory traversal attacks */
+  if( !isValidDatabasePath(zDbToVacuum) ){
+    fprintf(stderr, "Error: Invalid database path. Path must be relative and cannot contain directory traversal sequences.\n");
+    return 1;
+  }
+  
   printf("-- open database file \"%s\"\n", zDbToVacuum);
   rc = sqlite3_open(zDbToVacuum, &db);
   if( rc ){
