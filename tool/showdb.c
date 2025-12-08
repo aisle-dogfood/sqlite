@@ -320,6 +320,7 @@ static i64 describeContent(
   const unsigned char *pData;
   const unsigned char *pLimit;
   char sep = ' ';
+  char zTemp[100];  /* Temporary buffer for safe sprintf */
 
   pLimit = &a[nLocal];
   n = decodeVarint(a, &x);
@@ -335,8 +336,9 @@ static i64 describeContent(
     sep = ',';
     nDesc++;
     zDesc++;
+    zTemp[0] = '\0';
     if( x==0 ){
-      sprintf(zDesc, "*");     /* NULL is a "*" */
+      snprintf(zTemp, sizeof(zTemp), "*");     /* NULL is a "*" */
     }else if( x>=1 && x<=6 ){
       v = (signed char)pData[0];
       pData++;
@@ -347,26 +349,30 @@ static i64 describeContent(
         case 3:  v = (v<<8) + pData[0];  pData++;
         case 2:  v = (v<<8) + pData[0];  pData++;
       }
-      sprintf(zDesc, "%lld", v);
+      snprintf(zTemp, sizeof(zTemp), "%lld", v);
     }else if( x==7 ){
-      sprintf(zDesc, "real");
+      snprintf(zTemp, sizeof(zTemp), "real");
       pData += 8;
     }else if( x==8 ){
-      sprintf(zDesc, "0");
+      snprintf(zTemp, sizeof(zTemp), "0");
     }else if( x==9 ){
-      sprintf(zDesc, "1");
+      snprintf(zTemp, sizeof(zTemp), "1");
     }else if( x>=12 ){
       i64 size = (x-12)/2;
       if( (x&1)==0 ){
-        sprintf(zDesc, "blob(%lld)", size);
+        snprintf(zTemp, sizeof(zTemp), "blob(%lld)", size);
       }else{
-        sprintf(zDesc, "txt(%lld)", size);
+        snprintf(zTemp, sizeof(zTemp), "txt(%lld)", size);
       }
       pData += size;
     }
-    j = (int)strlen(zDesc);
-    zDesc += j;
-    nDesc += j;
+    j = (int)strlen(zTemp);
+    /* Only copy if we have space - caller should ensure buffer is large enough */
+    if( j > 0 ){
+      memcpy(zDesc, zTemp, j + 1);  /* +1 for null terminator */
+      zDesc += j;
+      nDesc += j;
+    }
   }
   return nDesc;
 }
@@ -421,20 +427,27 @@ static i64 describeCell(
   i64 rowid;
   i64 nLocal;
   static char zDesc[1000];
+  int nRem;  /* Remaining space in zDesc buffer */
   i = 0;
   if( cType<=5 ){
     leftChild = ((a[0]*256 + a[1])*256 + a[2])*256 + a[3];
     a += 4;
     n += 4;
-    sprintf(zDesc, "lx: %u ", leftChild);
-    nDesc = strlen(zDesc);
+    nRem = sizeof(zDesc) - nDesc;
+    if( nRem > 0 ){
+      snprintf(zDesc, nRem, "lx: %u ", leftChild);
+      nDesc = strlen(zDesc);
+    }
   }
   if( cType!=5 ){
     i = decodeVarint(a, &nPayload);
     a += i;
     n += i;
-    sprintf(&zDesc[nDesc], "n: %lld ", nPayload);
-    nDesc += strlen(&zDesc[nDesc]);
+    nRem = sizeof(zDesc) - nDesc;
+    if( nRem > 0 ){
+      snprintf(&zDesc[nDesc], nRem, "n: %lld ", nPayload);
+      nDesc += strlen(&zDesc[nDesc]);
+    }
     nLocal = localPayload(nPayload, cType);
   }else{
     nPayload = nLocal = 0;
@@ -443,19 +456,28 @@ static i64 describeCell(
     i = decodeVarint(a, &rowid);
     a += i;
     n += i;
-    sprintf(&zDesc[nDesc], "r: %lld ", rowid);
-    nDesc += strlen(&zDesc[nDesc]);
+    nRem = sizeof(zDesc) - nDesc;
+    if( nRem > 0 ){
+      snprintf(&zDesc[nDesc], nRem, "r: %lld ", rowid);
+      nDesc += strlen(&zDesc[nDesc]);
+    }
   }
   if( nLocal<nPayload ){
     u32 ovfl;
     unsigned char *b = &a[nLocal];
     ovfl = ((b[0]*256 + b[1])*256 + b[2])*256 + b[3];
-    sprintf(&zDesc[nDesc], "ov: %u ", ovfl);
-    nDesc += strlen(&zDesc[nDesc]);
+    nRem = sizeof(zDesc) - nDesc;
+    if( nRem > 0 ){
+      snprintf(&zDesc[nDesc], nRem, "ov: %u ", ovfl);
+      nDesc += strlen(&zDesc[nDesc]);
+    }
     n += 4;
   }
   if( showCellContent && cType!=5 ){
-    nDesc += describeContent(a, nLocal, &zDesc[nDesc-1]);
+    nRem = sizeof(zDesc) - nDesc;
+    if( nRem > 1 ){
+      nDesc += describeContent(a, nLocal, &zDesc[nDesc-1]);
+    }
   }
   *pzDesc = zDesc;
   return nLocal+n;
