@@ -752,7 +752,7 @@ static u32 zipfileMtime(ZipfileCDS *pCDS){
   X2 = 306001*(M+1)/10000;
   A = Y/100;
   B = 2 - A + (A/4);
-  JDsec = (i64)((X1 + X2 + D + B - 1524.5)*86400) + hr*3600 + min*60 + sec;
+  JDsec = ((i64)X1 + X2 + D + B - 1524) * 86400 - 43200 + hr*3600 + min*60 + sec;
   return (u32)(JDsec - (i64)24405875*(i64)8640);
 }
 
