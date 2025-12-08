@@ -696,7 +696,8 @@ static void decode_btree_page(
     printf(" key: lx=left-child n=payload-size r=rowid\n");
   }
   if( showMap ){
-    zMap = sqlite3_malloc(g.pagesize);
+    zMap = sqlite3_malloc64(g.pagesize);
+    if( zMap==0 ) out_of_memory();
     memset(zMap, '.', g.pagesize);
     memset(zMap, '1', hdrSize);
     memset(&zMap[hdrSize], 'H', iCellPtr);
