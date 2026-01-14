@@ -1,0 +1,30 @@
+FROM public.ecr.aws/docker/library/debian:11-slim
+
+# Install dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    make \
+    tcl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create a non-root user
+RUN useradd -m -s /bin/bash app
+
+# Set up working directory
+WORKDIR /app
+
+# Copy source code
+COPY . .
+
+# Set permissions for the non-root user
+RUN chown -R app:app /app
+
+# Switch to non-root user
+# Set PATH to include user's local bin directory
+ENV PATH="$HOME/.local/bin:$PATH"
+
+# Create build directory
+RUN mkdir -p bld
+
+# Configure and build
+RUN mkdir -p bld && cd bld && ../configure && cd ..

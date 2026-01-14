@@ -1,0 +1,27 @@
+FROM public.ecr.aws/docker/library/debian:11-slim
+
+# Install required dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    make \
+    tcl \
+    tcl-dev \
+    libreadline-dev \
+    zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN useradd -m -s /bin/bash app
+
+# Set up working directory
+WORKDIR /app
+
+# Copy source files
+COPY . .
+
+# Set permissions for the non-root user
+RUN chown -R app:app /app
+
+# Switch to non-root user
+USER app
+ENV PATH="$HOME/.local/bin:$PATH"

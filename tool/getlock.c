@@ -14,6 +14,43 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <limits.h>
+
+/* 
+ * Validate a file path to prevent path traversal attacks
+ * Returns 1 if path is safe, 0 if potentially unsafe
+ */
+static int isPathSafe(const char *path) {
+  char resolved_path[PATH_MAX];
+  char *result;
+  
+  /* Get the absolute path with all symbolic links resolved */
+  result = realpath(path, resolved_path);
+  if (result == NULL) {
+    /* If realpath fails, it could be because the file doesn't exist yet,
+       which is a legitimate case for creating new files, or it could be
+       due to a path traversal attempt. We'll be conservative and reject it. */
+    return 0;
+  }
+  
+  /* At this point, we have a canonicalized path.
+     Additional checks could be added here, such as:
+     - Ensuring the path is within a specific directory
+     - Checking against a whitelist of allowed paths
+     - Verifying file extensions
+     
+     For now, we'll just ensure it's not accessing sensitive system locations */
+  if (strncmp(resolved_path, "/etc/", 5) == 0 ||
+      strncmp(resolved_path, "/bin/", 5) == 0 ||
+      strncmp(resolved_path, "/sbin/", 6) == 0 ||
+      strncmp(resolved_path, "/dev/", 5) == 0 ||
+      strncmp(resolved_path, "/proc/", 6) == 0 ||
+      strncmp(resolved_path, "/sys/", 5) == 0) {
+    return 0;
+  }
+  
+  return 1;
+}
 
 static void usage(const char *argv0){
   fprintf(stderr, "Usage: %s database\n", argv0);
@@ -78,6 +115,13 @@ int main(int argc, char **argv){
   int i;                     /* Loop counter */
 
   if( argc!=2 ) usage(argv[0]);
+  
+  /* Validate the input path to prevent path traversal attacks */
+  if (!isPathSafe(argv[1])) {
+    fprintf(stderr, "unsafe path: %s\n", argv[1]);
+    exit(1);
+  }
+  
   hDb = open(argv[1], O_RDONLY, 0);
   if( hDb<0 ){
     fprintf(stderr, "cannot open %s\n", argv[1]);
@@ -113,12 +157,22 @@ int main(int argc, char **argv){
     }
     memcpy(zShm, argv[1], nName);
     memcpy(&zShm[nName], "-shm", 5);
+    
+    /* Validate the constructed path as well */
+    if (!isPathSafe(zShm)) {
+      fprintf(stderr, "unsafe path: %s\n", zShm);
+      free(zShm);
+      exit(1);
+    }
+    
     hShm = open(zShm, O_RDONLY, 0);
     if( hShm<0 ){
       fprintf(stderr, "cannot open %s\n", zShm);
+      free(zShm);
       return 1;
     }
     if( isLocked(hShm, F_RDLCK, SHM_RECOVER, 1, "WAL-RECOVERY") ){
+      free(zShm);
       return 0;
     }
     nLock += isLocked(hShm, F_RDLCK, SHM_CHECKPOINT, 1, "WAL-CHECKPOINT");
@@ -126,6 +180,7 @@ int main(int argc, char **argv){
     for(i=0; i<SHM_READ_SIZE; i++){
       nLock += isLocked(hShm, F_WRLCK, SHM_READ_FIRST+i, 1, "WAL-READ");
     }
+    free(zShm);
   }
   if( nLock==0 ){
     printf("file is not locked\n");
