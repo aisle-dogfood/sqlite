@@ -382,7 +382,12 @@ static int zipfileConnect(
 
   if( argc>3 ){
     zFile = argv[3];
-    nFile = (int)strlen(zFile)+1;
+    size_t nFileLen = strlen(zFile);
+    if( nFileLen > (size_t)(INT_MAX-1) ){
+      *pzErr = sqlite3_mprintf("zipfile: filename too long");
+      return SQLITE_ERROR;
+    }
+    nFile = (int)nFileLen+1;
   }
 
   rc = sqlite3_declare_vtab(db, ZIPFILE_SCHEMA);
@@ -1468,7 +1473,9 @@ static int zipfileGetMode(
 ** nB is the value of strlen(zB). This function returns 0 if the strings are
 ** identical, ignoring any trailing '/' character in either path.  */
 static int zipfileComparePath(const char *zA, const char *zB, int nB){
-  int nA = (int)strlen(zA);
+  size_t nALen = strlen(zA);
+  if( nALen > (size_t)INT_MAX ) return 1; /* Treat as different if too long */
+  int nA = (int)nALen;
   if( nA>0 && zA[nA-1]=='/' ) nA--;
   if( nB>0 && zB[nB-1]=='/' ) nB--;
   if( nA==nB && memcmp(zA, zB, nA)==0 ) return 0;
@@ -1604,7 +1611,12 @@ static int zipfileUpdate(
   /* If this is a DELETE or UPDATE, find the archive entry to delete. */
   if( sqlite3_value_type(apVal[0])!=SQLITE_NULL ){
     const char *zDelete = (const char*)sqlite3_value_text(apVal[0]);
-    int nDelete = (int)strlen(zDelete);
+    size_t nDeleteLen = strlen(zDelete);
+    if( nDeleteLen > (size_t)INT_MAX ){
+      pTab->base.zErrMsg = sqlite3_mprintf("zipfile: path too long");
+      return SQLITE_ERROR;
+    }
+    int nDelete = (int)nDeleteLen;
     if( nVal>1 ){
       const char *zUpdate = (const char*)sqlite3_value_text(apVal[1]);
       if( zUpdate && zipfileComparePath(zUpdate, zDelete, nDelete)!=0 ){
@@ -1672,8 +1684,14 @@ static int zipfileUpdate(
     if( rc==SQLITE_OK ){
       zPath = (const char*)sqlite3_value_text(apVal[2]);
       if( zPath==0 ) zPath = "";
-      nPath = (int)strlen(zPath);
-      mTime = zipfileGetTime(apVal[4]);
+      size_t nPathLen = strlen(zPath);
+      if( nPathLen > (size_t)INT_MAX ){
+        pTab->base.zErrMsg = sqlite3_mprintf("zipfile: path too long");
+        rc = SQLITE_ERROR;
+      }else{
+        nPath = (int)nPathLen;
+        mTime = zipfileGetTime(apVal[4]);
+      }
     }
 
     if( rc==SQLITE_OK && bIsDir ){
@@ -1688,7 +1706,14 @@ static int zipfileUpdate(
           rc = SQLITE_NOMEM;
           nPath = 0;
         }else{
-          nPath = (int)strlen(zPath);
+          size_t nPathLen2 = strlen(zPath);
+          if( nPathLen2 > (size_t)INT_MAX ){
+            pTab->base.zErrMsg = sqlite3_mprintf("zipfile: path too long");
+            rc = SQLITE_ERROR;
+            nPath = 0;
+          }else{
+            nPath = (int)nPathLen2;
+          }
         }
       }
     }
@@ -2095,7 +2120,13 @@ static void zipfileStep(sqlite3_context *pCtx, int nVal, sqlite3_value **apVal){
         rc = SQLITE_NOMEM;
         goto zipfile_step_out;
       }
-      nName = (int)strlen(zName);
+      size_t nNameLen = strlen(zName);
+      if( nNameLen > (size_t)INT_MAX ){
+        zErr = sqlite3_mprintf("zipfile: name too long");
+        rc = SQLITE_ERROR;
+        goto zipfile_step_out;
+      }
+      nName = (int)nNameLen;
     }else{
       while( nName>1 && zName[nName-2]=='/' ) nName--;
     }
