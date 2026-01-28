@@ -80,7 +80,7 @@ int main(int argc, char **argv){
   char zBuf[200];                 /* Buffer for printf() */
   char *zErrmsg = 0;              /* Error message, if any */
   sqlite3rbu *pRbu;               /* RBU handle */
-  int nStep = 0;                  /* Maximum number of step() calls */
+  sqlite3_int64 nStep = 0;        /* Maximum number of step() calls */
   int nStatStep = 0;              /* Report stats after this many step calls */
   int bVacuum = 0;
   const char *zPreSql = 0;
@@ -139,8 +139,9 @@ int main(int argc, char **argv){
   ** or an error occurs. Or, if nStep is greater than zero, call
   ** sqlite3rbu_step() a maximum of nStep times.  */
   if( rc==SQLITE_OK ){
-    for(i=0; (nStep<=0 || i<nStep) && sqlite3rbu_step(pRbu)==SQLITE_OK; i++){
-      if( nStatStep>0 && (i % nStatStep)==0 ){
+    sqlite3_int64 iStep;
+    for(iStep=0; (nStep<=0 || iStep<nStep) && sqlite3rbu_step(pRbu)==SQLITE_OK; iStep++){
+      if( nStatStep>0 && (iStep % nStatStep)==0 ){
         sqlite3_int64 nUsed;
         sqlite3_int64 nHighwater;
         sqlite3_status64(SQLITE_STATUS_MEMORY_USED, &nUsed, &nHighwater, 0);
