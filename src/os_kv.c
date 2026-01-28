@@ -410,7 +410,18 @@ static int kvvfsDecode(const char *a, char *aOut, int nOut){
       c = aIn[i];
       if( c==0 ) break;
       while( c>='a' && c<='z' ){
-        n += (c - 'a')*mult;
+        int nNew;
+        /* Check for overflow before adding */
+        if( mult>0x7fffffff/26 ){
+          /* Multiplier too large, would overflow */
+          return -1;
+        }
+        nNew = n + (c - 'a')*mult;
+        if( nNew<n ){
+          /* Integer overflow occurred */
+          return -1;
+        }
+        n = nNew;
         mult *= 26;
         c = aIn[++i];
       }
@@ -450,7 +461,24 @@ static void kvvfsDecodeJournal(
   i = 0;
   mult = 1;
   while( (c = zTxt[i++])>='a' && c<='z' ){
-    n += (zTxt[i] - 'a')*mult;
+    unsigned int nNew;
+    /* Check for overflow before adding */
+    if( mult>0x7fffffff/26 ){
+      /* Multiplier too large, would overflow */
+      sqlite3_free(pFile->aJrnl);
+      pFile->aJrnl = 0;
+      pFile->nJrnl = 0;
+      return;
+    }
+    nNew = n + (c - 'a')*mult;
+    if( nNew<n ){
+      /* Integer overflow occurred */
+      sqlite3_free(pFile->aJrnl);
+      pFile->aJrnl = 0;
+      pFile->nJrnl = 0;
+      return;
+    }
+    n = nNew;
     mult *= 26;
   }
   sqlite3_free(pFile->aJrnl);
