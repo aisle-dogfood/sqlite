@@ -1120,6 +1120,10 @@ static void readAndDisplayMessage(SQLiteRsync *p, int c){
   readUint32(p, &n);
   if( n==0 ){
     fprintf(stderr,"ERROR: unknown (possibly out-of-memory)\n");
+  }else if( n>0x7fffffff ){
+    /* Prevent integer overflow in n+1 and unreasonably large messages */
+    fprintf(stderr, "ERROR: message too large\n");
+    logError(p, "ERROR: message size %u is too large\n", n);
   }else{
     zMsg = sqlite3_malloc64( n+1 );
     if( zMsg==0 ){
