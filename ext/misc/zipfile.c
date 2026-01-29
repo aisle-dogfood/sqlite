@@ -698,15 +698,26 @@ static int zipfileScanExtra(u8 *aExtra, int nExtra, u32 *pmTime){
   u8 *pEnd = &aExtra[nExtra];
 
   while( p<pEnd ){
-    u16 id = zipfileRead16(p);
-    u16 nByte = zipfileRead16(p);
+    u16 id, nByte;
+    
+    /* Ensure we have enough bytes to read the header (4 bytes: id + nByte) */
+    if( (pEnd - p) < 4 ) break;
+    
+    id = zipfileRead16(p);
+    nByte = zipfileRead16(p);
+    
+    /* Ensure the field data doesn't extend beyond the buffer */
+    if( (pEnd - p) < nByte ) break;
 
     switch( id ){
       case ZIPFILE_EXTRA_TIMESTAMP: {
-        u8 b = p[0];
-        if( b & 0x01 ){     /* 0x01 -> modtime is present */
-          *pmTime = zipfileGetU32(&p[1]);
-          ret = 1;
+        /* Ensure we have at least 1 byte for flags and 4 bytes for timestamp */
+        if( nByte >= 5 ){
+          u8 b = p[0];
+          if( b & 0x01 ){     /* 0x01 -> modtime is present */
+            *pmTime = zipfileGetU32(&p[1]);
+            ret = 1;
+          }
         }
         break;
       }
