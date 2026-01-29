@@ -410,11 +410,19 @@ static int kvvfsDecode(const char *a, char *aOut, int nOut){
       c = aIn[i];
       if( c==0 ) break;
       while( c>='a' && c<='z' ){
-        n += (c - 'a')*mult;
+        int digit = c - 'a';
+        /* Check for overflow in multiplication */
+        if( mult > (0x7fffffff / 26) ) return -1;
+        /* Check for overflow in digit*mult */
+        if( digit > 0 && mult > (0x7fffffff / digit) ) return -1;
+        /* Check for overflow in addition */
+        if( n > 0x7fffffff - (digit * mult) ) return -1;
+        n += digit * mult;
         mult *= 26;
         c = aIn[++i];
       }
-      if( n>nOut || j>nOut-n ) return -1;
+      /* Check bounds safely without overflow: n > nOut or j + n > nOut */
+      if( n < 0 || n > nOut || j > nOut - n ) return -1;
       memset(&aOut[j], 0, n);
       j += n;
       if( c==0 || mult==1 ) break; /* progress stalled if mult==1 */
