@@ -265,7 +265,7 @@ struct ZipfileLFH {
 typedef struct ZipfileEntry ZipfileEntry;
 struct ZipfileEntry {
   ZipfileCDS cds;            /* Parsed CDS record */
-  u32 mUnixTime;             /* Modification time, in UNIX format */
+  i64 mUnixTime;             /* Modification time, in UNIX format */
   u8 *aExtra;                /* cds.nExtra+cds.nComment bytes of extra data */
   i64 iDataOff;              /* Offset to data in file (if aData==0) */
   u8 *aData;                 /* cds.szCompressed bytes of compressed data */
@@ -692,7 +692,7 @@ static int zipfileReadLFH(
 **   Data Size    2 bytes
 **   Data         N bytes
 */
-static int zipfileScanExtra(u8 *aExtra, int nExtra, u32 *pmTime){
+static int zipfileScanExtra(u8 *aExtra, int nExtra, i64 *pmTime){
   int ret = 0;
   u8 *p = aExtra;
   u8 *pEnd = &aExtra[nExtra];
@@ -705,7 +705,7 @@ static int zipfileScanExtra(u8 *aExtra, int nExtra, u32 *pmTime){
       case ZIPFILE_EXTRA_TIMESTAMP: {
         u8 b = p[0];
         if( b & 0x01 ){     /* 0x01 -> modtime is present */
-          *pmTime = zipfileGetU32(&p[1]);
+          *pmTime = (i64)zipfileGetU32(&p[1]);
           ret = 1;
         }
         break;
@@ -719,7 +719,7 @@ static int zipfileScanExtra(u8 *aExtra, int nExtra, u32 *pmTime){
 
 /*
 ** Convert the standard MS-DOS timestamp stored in the mTime and mDate
-** fields of the CDS structure passed as the only argument to a 32-bit
+** fields of the CDS structure passed as the only argument to a 64-bit
 ** UNIX seconds-since-the-epoch timestamp. Return the result.
 **
 ** "Standard" MS-DOS time format:
@@ -735,7 +735,7 @@ static int zipfileScanExtra(u8 *aExtra, int nExtra, u32 *pmTime){
 **
 ** https://msdn.microsoft.com/en-us/library/9kkf9tah.aspx
 */
-static u32 zipfileMtime(ZipfileCDS *pCDS){
+static i64 zipfileMtime(ZipfileCDS *pCDS){
   int Y,M,D,X1,X2,A,B,sec,min,hr;
   i64 JDsec;
   Y = (1980 + ((pCDS->mDate >> 9) & 0x7F));
@@ -753,7 +753,7 @@ static u32 zipfileMtime(ZipfileCDS *pCDS){
   A = Y/100;
   B = 2 - A + (A/4);
   JDsec = (i64)((X1 + X2 + D + B - 1524.5)*86400) + hr*3600 + min*60 + sec;
-  return (u32)(JDsec - (i64)24405875*(i64)8640);
+  return JDsec - (i64)24405875*(i64)8640;
 }
 
 /*
@@ -761,7 +761,7 @@ static u32 zipfileMtime(ZipfileCDS *pCDS){
 ** mDate fields of the CDS structure passed as the first argument according
 ** to the UNIX timestamp value passed as the second.
 */
-static void zipfileMtimeToDos(ZipfileCDS *pCds, u32 mUnixTime){
+static void zipfileMtimeToDos(ZipfileCDS *pCds, i64 mUnixTime){
   /* Convert unix timestamp to JD (2440588 is noon on 1/1/1970) */
   i64 JD = (i64)2440588 + mUnixTime / (24*60*60);
 
@@ -780,9 +780,9 @@ static void zipfileMtimeToDos(ZipfileCDS *pCds, u32 mUnixTime){
   mon = (E<14 ? E-1 : E-13);
   yr = mon>2 ? C-4716 : C-4715;
 
-  hr = (mUnixTime % (24*60*60)) / (60*60);
-  min = (mUnixTime % (60*60)) / 60;
-  sec = (mUnixTime % 60);
+  hr = (int)((mUnixTime % (24*60*60)) / (60*60));
+  min = (int)((mUnixTime % (60*60)) / 60);
+  sec = (int)(mUnixTime % 60);
 
   if( yr>=1980 ){
     pCds->mDate = (u16)(day + (mon << 5) + ((yr-1980) << 9));
@@ -860,7 +860,7 @@ static int zipfileGetEntry(
     }
 
     if( rc==SQLITE_OK ){
-      u32 *pt = &pNew->mUnixTime;
+      i64 *pt = &pNew->mUnixTime;
       pNew->cds.zFile = sqlite3_mprintf("%.*s", nFile, aRead); 
       pNew->aExtra = (u8*)&pNew[1];
       memcpy(pNew->aExtra, &aRead[nFile], nExtra);
@@ -1397,7 +1397,7 @@ static int zipfileSerializeLFH(ZipfileEntry *pEntry, u8 *aBuf){
   zipfileWrite16(a, ZIPFILE_EXTRA_TIMESTAMP);
   zipfileWrite16(a, 5);
   *a++ = 0x01;
-  zipfileWrite32(a, pEntry->mUnixTime);
+  zipfileWrite32(a, (u32)pEntry->mUnixTime);
 
   return a-aBuf;
 }
@@ -1509,37 +1509,37 @@ static int zipfileBegin(sqlite3_vtab *pVtab){
 }
 
 /*
-** Return the current time as a 32-bit timestamp in UNIX epoch format (like
+** Return the current time as a 64-bit timestamp in UNIX epoch format (like
 ** time(2)).
 */
-static u32 zipfileTime(void){
+static i64 zipfileTime(void){
   sqlite3_vfs *pVfs = sqlite3_vfs_find(0);
-  u32 ret;
+  i64 ret;
   if( pVfs==0 ) return 0;
   if( pVfs->iVersion>=2 && pVfs->xCurrentTimeInt64 ){
     i64 ms;
     pVfs->xCurrentTimeInt64(pVfs, &ms);
-    ret = (u32)((ms/1000) - ((i64)24405875 * 8640));
+    ret = (ms/1000) - ((i64)24405875 * 8640);
   }else{
     double day;
     pVfs->xCurrentTime(pVfs, &day);
-    ret = (u32)((day - 2440587.5) * 86400);
+    ret = (i64)((day - 2440587.5) * 86400);
   }
   return ret;
 }
 
 /*
-** Return a 32-bit timestamp in UNIX epoch format.
+** Return a 64-bit timestamp in UNIX epoch format.
 **
 ** If the value passed as the only argument is either NULL or an SQL NULL,
 ** return the current time. Otherwise, return the value stored in (*pVal)
-** cast to a 32-bit unsigned integer.
+** as a 64-bit integer.
 */
-static u32 zipfileGetTime(sqlite3_value *pVal){
+static i64 zipfileGetTime(sqlite3_value *pVal){
   if( pVal==0 || sqlite3_value_type(pVal)==SQLITE_NULL ){
     return zipfileTime();
   }
-  return (u32)sqlite3_value_int64(pVal);
+  return sqlite3_value_int64(pVal);
 }
 
 /*
@@ -1735,7 +1735,7 @@ static int zipfileUpdate(
         pNew->cds.iExternalAttr = (mode<<16);
         pNew->cds.iOffset = (u32)pTab->szCurrent;
         pNew->cds.nFile = (u16)nPath;
-        pNew->mUnixTime = (u32)mTime;
+        pNew->mUnixTime = mTime;
         rc = zipfileAppendEntry(pTab, pNew, pData, nData);
         zipfileAddEntry(pTab, pOld, pNew);
       }
@@ -1824,7 +1824,7 @@ static int zipfileSerializeCDS(ZipfileEntry *pEntry, u8 *aBuf){
     zipfileWrite16(a, ZIPFILE_EXTRA_TIMESTAMP);
     zipfileWrite16(a, 5);
     *a++ = 0x01;
-    zipfileWrite32(a, pEntry->mUnixTime);
+    zipfileWrite32(a, (u32)pEntry->mUnixTime);
   }
 
   return a-aBuf;
@@ -2106,7 +2106,7 @@ static void zipfileStep(sqlite3_context *pCtx, int nVal, sqlite3_value **apVal){
   e.cds.iVersionExtract = ZIPFILE_NEWENTRY_REQUIRED;
   e.cds.flags = ZIPFILE_NEWENTRY_FLAGS;
   e.cds.iCompression = (u16)iMethod;
-  zipfileMtimeToDos(&e.cds, (u32)e.mUnixTime);
+  zipfileMtimeToDos(&e.cds, e.mUnixTime);
   e.cds.crc32 = iCrc32;
   e.cds.szCompressed = nData;
   e.cds.szUncompressed = szUncompressed;
