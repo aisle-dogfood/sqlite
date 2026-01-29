@@ -486,26 +486,47 @@ static void decode_btree_page(
   }
   if( showMap ){
     zMap = malloc(pagesize);
-    memset(zMap, '.', pagesize);
-    memset(zMap, '1', hdrSize);
-    memset(&zMap[hdrSize], 'H', iCellPtr);
-    memset(&zMap[hdrSize+iCellPtr], 'P', 2*nCell);
+    if( zMap==0 ){
+      fprintf(stderr, "Out of memory\n");
+      showMap = 0;
+    }else{
+      memset(zMap, '.', pagesize);
+      memset(zMap, '1', hdrSize);
+      memset(&zMap[hdrSize], 'H', iCellPtr);
+      /* Bounds check: ensure that hdrSize+iCellPtr+2*nCell doesn't exceed pagesize */
+      if( hdrSize+iCellPtr+(i64)2*nCell <= pagesize ){
+        memset(&zMap[hdrSize+iCellPtr], 'P', 2*nCell);
+      }
+    }
   }
   for(i=0; i<nCell; i++){
     int cofst = iCellPtr + i*2;
     char *zDesc;
     i64 n;
 
+    /* Bounds check: ensure we can safely read the cell offset pointer */
+    if( cofst+1 >= pagesize-hdrSize ){
+      printf(" ERROR: cell pointer %d out of bounds\n", i);
+      break;
+    }
     cofst = a[cofst]*256 + a[cofst+1];
+    /* Bounds check: ensure cofst-hdrSize is within the page content buffer */
+    if( cofst < hdrSize || cofst >= pagesize ){
+      printf(" ERROR: cell %d offset %d out of bounds\n", i, cofst);
+      continue;
+    }
     n = describeCell(a[0], &a[cofst-hdrSize], showCellContent, &zDesc);
     if( showMap ){
       char zBuf[30];
-      memset(&zMap[cofst], '*', (size_t)n);
-      zMap[cofst] = '[';
-      zMap[cofst+n-1] = ']';
-      sprintf(zBuf, "%d", i);
-      j = (int)strlen(zBuf);
-      if( j<=n-2 ) memcpy(&zMap[cofst+1], zBuf, j);
+      /* Bounds check: ensure cofst and cofst+n are within the allocated zMap buffer */
+      if( cofst>=0 && cofst<pagesize && n>=0 && cofst+n<=pagesize ){
+        memset(&zMap[cofst], '*', (size_t)n);
+        zMap[cofst] = '[';
+        if( n>0 ) zMap[cofst+n-1] = ']';
+        sprintf(zBuf, "%d", i);
+        j = (int)strlen(zBuf);
+        if( j<=n-2 ) memcpy(&zMap[cofst+1], zBuf, j);
+      }
     }
     printf(" %03x: cell[%d] %s\n", cofst, i, zDesc);
   }
