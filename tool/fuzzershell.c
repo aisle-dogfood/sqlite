@@ -757,17 +757,33 @@ static int integerValue(const char *zArg){
     int x;
     zArg += 2;
     while( (x = hexDigitValue(zArg[0]))>=0 ){
+      /* Check for overflow before left shift */
+      if( v > (0x7fffffffffffffffLL >> 4) ){
+        abendError("parameter too large - max 2147483648");
+      }
       v = (v<<4) + x;
       zArg++;
     }
   }else{
     while( ISDIGIT(zArg[0]) ){
+      /* Check for overflow before multiplication and addition */
+      if( v > (0x7fffffffffffffffLL / 10) ){
+        abendError("parameter too large - max 2147483648");
+      }
       v = v*10 + zArg[0] - '0';
+      /* Also check if the addition caused overflow */
+      if( v < 0 ){
+        abendError("parameter too large - max 2147483648");
+      }
       zArg++;
     }
   }
   for(i=0; i<sizeof(aMult)/sizeof(aMult[0]); i++){
     if( sqlite3_stricmp(aMult[i].zSuffix, zArg)==0 ){
+      /* Check for overflow before multiplication */
+      if( aMult[i].iMult != 0 && v > (0x7fffffffffffffffLL / aMult[i].iMult) ){
+        abendError("parameter too large - max 2147483648");
+      }
       v *= aMult[i].iMult;
       break;
     }
