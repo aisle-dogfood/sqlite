@@ -11,7 +11,8 @@
 
 #define ISPRINT(X)  isprint((unsigned char)(X))
 
-typedef sqlite3_int64 i64;   /* 64-bit signed integer type */
+typedef sqlite3_int64 i64;     /* 64-bit signed integer type */
+typedef sqlite3_uint64 u64;    /* 64-bit unsigned integer type */
 
 
 /*
@@ -19,14 +20,14 @@ typedef sqlite3_int64 i64;   /* 64-bit signed integer type */
 ** in the var-int.  Write the var-int value into *pVal.
 */
 static int decodeVarint(const unsigned char *z, i64 *pVal){
-  i64 v = 0;
+  u64 v = 0;
   int i;
   for(i=0; i<8; i++){
     v = (v<<7) + (z[i]&0x7f);
-    if( (z[i]&0x80)==0 ){ *pVal = v; return i+1; }
+    if( (z[i]&0x80)==0 ){ *pVal = (i64)v; return i+1; }
   }
   v = (v<<8) + (z[i]&0xff);
-  *pVal = v;
+  *pVal = (i64)v;
   return 9;
 }
 

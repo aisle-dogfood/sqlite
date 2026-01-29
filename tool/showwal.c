@@ -26,7 +26,8 @@ static int fd = -1;             /* File descriptor for reading the WAL file */
 static int mxFrame = 0;         /* Last frame */
 static int perLine = 16;        /* HEX elements to print per line */
 
-typedef long long int i64;      /* Datatype for 64-bit integers */
+typedef long long int i64;              /* Datatype for 64-bit signed integers */
+typedef unsigned long long int u64;     /* Datatype for 64-bit unsigned integers */
 
 /* Information for computing the checksum */
 typedef struct Cksum Cksum;
@@ -93,14 +94,14 @@ static void extendCksum(
 ** in the var-int.  Write the var-int value into *pVal.
 */
 static int decodeVarint(const unsigned char *z, i64 *pVal){
-  i64 v = 0;
+  u64 v = 0;
   int i;
   for(i=0; i<8; i++){
     v = (v<<7) + (z[i]&0x7f);
-    if( (z[i]&0x80)==0 ){ *pVal = v; return i+1; }
+    if( (z[i]&0x80)==0 ){ *pVal = (i64)v; return i+1; }
   }
   v = (v<<8) + (z[i]&0xff);
-  *pVal = v;
+  *pVal = (i64)v;
   return 9;
 }
 

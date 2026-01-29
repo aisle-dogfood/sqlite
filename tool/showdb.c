@@ -41,14 +41,14 @@ static struct GlobalData {
 ** in the var-int.  Write the var-int value into *pVal.
 */
 static int decodeVarint(const unsigned char *z, i64 *pVal){
-  i64 v = 0;
+  u64 v = 0;
   int i;
   for(i=0; i<8; i++){
     v = (v<<7) + (z[i]&0x7f);
-    if( (z[i]&0x80)==0 ){ *pVal = v; return i+1; }
+    if( (z[i]&0x80)==0 ){ *pVal = (i64)v; return i+1; }
   }
   v = (v<<8) + (z[i]&0xff);
-  *pVal = v;
+  *pVal = (i64)v;
   return 9;
 }
 
