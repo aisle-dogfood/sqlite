@@ -820,12 +820,16 @@ static int zipfileGetEntry(
   u8 *aRead;
   char **pzErr = &pTab->base.zErrMsg;
   int rc = SQLITE_OK;
-  (void)nBlob;
 
   if( aBlob==0 ){
     aRead = pTab->aBuffer;
     rc = zipfileReadData(pFile, aRead, ZIPFILE_CDS_FIXED_SZ, iOff, pzErr);
   }else{
+    /* Bounds check: ensure iOff + ZIPFILE_CDS_FIXED_SZ is within the blob */
+    if( iOff<0 || iOff>nBlob || iOff+ZIPFILE_CDS_FIXED_SZ>nBlob ){
+      *pzErr = sqlite3_mprintf("invalid CDS offset %lld", iOff);
+      return SQLITE_ERROR;
+    }
     aRead = (u8*)&aBlob[iOff];
   }
 
@@ -855,7 +859,14 @@ static int zipfileGetEntry(
             pFile, aRead, nExtra+nFile, iOff+ZIPFILE_CDS_FIXED_SZ, pzErr
         );
       }else{
-        aRead = (u8*)&aBlob[iOff + ZIPFILE_CDS_FIXED_SZ];
+        /* Bounds check: ensure iOff + ZIPFILE_CDS_FIXED_SZ + nExtra + nFile is within the blob */
+        i64 iEnd = iOff + ZIPFILE_CDS_FIXED_SZ + nExtra + nFile;
+        if( iEnd<iOff || iEnd>nBlob ){
+          *pzErr = sqlite3_mprintf("invalid CDS size at offset %lld", iOff);
+          rc = SQLITE_ERROR;
+        }else{
+          aRead = (u8*)&aBlob[iOff + ZIPFILE_CDS_FIXED_SZ];
+        }
       }
     }
 
@@ -877,7 +888,14 @@ static int zipfileGetEntry(
       if( pFile ){
         rc = zipfileReadData(pFile, aRead, szFix, pNew->cds.iOffset, pzErr);
       }else{
-        aRead = (u8*)&aBlob[pNew->cds.iOffset];
+        /* Bounds check: ensure cds.iOffset + ZIPFILE_LFH_FIXED_SZ is within the blob */
+        i64 iLfhEnd = pNew->cds.iOffset + ZIPFILE_LFH_FIXED_SZ;
+        if( pNew->cds.iOffset<0 || iLfhEnd<pNew->cds.iOffset || iLfhEnd>nBlob ){
+          *pzErr = sqlite3_mprintf("invalid LFH offset %d", (int)pNew->cds.iOffset);
+          rc = SQLITE_ERROR;
+        }else{
+          aRead = (u8*)&aBlob[pNew->cds.iOffset];
+        }
       }
 
       if( rc==SQLITE_OK ) rc = zipfileReadLFH(aRead, &lfh);
@@ -885,8 +903,15 @@ static int zipfileGetEntry(
         pNew->iDataOff =  pNew->cds.iOffset + ZIPFILE_LFH_FIXED_SZ;
         pNew->iDataOff += lfh.nFile + lfh.nExtra;
         if( aBlob && pNew->cds.szCompressed ){
-          pNew->aData = &pNew->aExtra[nExtra];
-          memcpy(pNew->aData, &aBlob[pNew->iDataOff], pNew->cds.szCompressed);
+          /* Bounds check: ensure iDataOff + szCompressed is within the blob */
+          i64 iDataEnd = pNew->iDataOff + pNew->cds.szCompressed;
+          if( pNew->iDataOff<0 || iDataEnd<pNew->iDataOff || iDataEnd>nBlob ){
+            *pzErr = sqlite3_mprintf("invalid data offset or size");
+            rc = SQLITE_ERROR;
+          }else{
+            pNew->aData = &pNew->aExtra[nExtra];
+            memcpy(pNew->aData, &aBlob[pNew->iDataOff], pNew->cds.szCompressed);
+          }
         }
       }else{
         *pzErr = sqlite3_mprintf("failed to read LFH at offset %d", 
@@ -1251,6 +1276,11 @@ static int zipfileLoadDirectory(ZipfileTab *pTab, const u8 *aBlob, int nBlob){
       zipfileAddEntry(pTab, 0, pNew);
       iOff += ZIPFILE_CDS_FIXED_SZ;
       iOff += (int)pNew->cds.nExtra + pNew->cds.nFile + pNew->cds.nComment;
+      /* Guard against integer overflow in offset calculation */
+      if( aBlob && iOff>nBlob ){
+        pTab->base.zErrMsg = sqlite3_mprintf("invalid central directory");
+        rc = SQLITE_ERROR;
+      }
     }
   }
   return rc;
